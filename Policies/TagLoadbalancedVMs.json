@@ -1,0 +1,192 @@
+{
+    "mode": "Indexed",
+    "policyRule": {
+        "if": {
+            "allOf": [{
+                    "field": "type",
+                    "equals": "Microsoft.Compute/virtualMachines"
+                },
+                {
+                    "anyOf": [{
+                            "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.osType",
+                            "equals": "Windows"
+                        },
+                        {
+                            "field": "Microsoft.Compute/virtualMachines/storageProfile.imageReference.offer",
+                            "like": "Windows*"
+                        }
+                    ]
+                }
+            ]
+        },
+        "then": {
+            "effect": "deployIfNotExists",
+            "details": {
+                "type": "Microsoft.Network/networkInterfaces",
+                "roleDefinitionIds": [
+                    "<YOUR ROLE ID>"
+                ],
+                "evaluationDelay": "AfterProvisioning",
+                "existenceCondition": {
+                    "anyOf": [{
+                            "allOf": [{
+                                    "anyOf": [{
+                                            "count": {
+                                                "field": "Microsoft.Network/networkInterfaces/ipConfigurations[*].loadBalancerBackendAddressPools[*]",
+                                                "where": {
+                                                    "allOf": [{
+                                                        "field": "Microsoft.Network/networkInterfaces/virtualMachine.id",
+                                                        "matchInsensitively": "[field('id')]"
+                                                    }]
+                                                }
+                                            },
+                                            "greaterOrEquals": 1
+                                        },
+                                        {
+                                            "count": {
+                                                "field": "Microsoft.Network/networkInterfaces/ipConfigurations[*].applicationGatewayBackendAddressPools[*]",
+                                                "where": {
+                                                    "allOf": [{
+                                                        "field": "Microsoft.Network/networkInterfaces/virtualMachine.id",
+                                                        "matchInsensitively": "[field('id')]"
+                                                    }]
+                                                }
+                                            },
+                                            "greaterOrEquals": 1
+                                        }
+                                    ]
+                                },
+                                {
+                                    "value": "[if(empty(field('tags')),'',field('tags'))]",
+                                    "containsKey": "[parameters('tagName')]"
+                                },
+                                {
+                                    "field": "Microsoft.Network/networkInterfaces/virtualMachine.id",
+                                    "matchInsensitively": "[field('id')]"
+                                }
+                            ]
+                        },
+                        {
+                            "allOf": [{
+                                    "count": {
+                                        "field": "Microsoft.Network/networkInterfaces/ipConfigurations[*].loadBalancerBackendAddressPools[*]",
+                                        "where": {
+                                            "allOf": [{
+                                                "field": "Microsoft.Network/networkInterfaces/virtualMachine.id",
+                                                "matchInsensitively": "[field('id')]"
+                                            }]
+                                        }
+                                    },
+                                    "equals": 0
+                                },
+                                {
+                                    "count": {
+                                        "field": "Microsoft.Network/networkInterfaces/ipConfigurations[*].applicationGatewayBackendAddressPools[*]",
+                                        "where": {
+                                            "allOf": [{
+                                                "field": "Microsoft.Network/networkInterfaces/virtualMachine.id",
+                                                "matchInsensitively": "[field('id')]"
+                                            }]
+                                        }
+                                    },
+                                    "equals": 0
+                                },
+                                {
+                                    "field": "Microsoft.Network/networkInterfaces/virtualMachine.id",
+                                    "matchInsensitively": "[field('id')]"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "deployment": {
+                    "properties": {
+                        "mode": "incremental",
+                        "template": {
+                            "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                            "contentVersion": "1.0.0.0",
+                            "parameters": {
+                                "vmId": {
+                                    "type": "string"
+                                },
+                                "tagName": {
+                                    "type": "string",
+                                    "defaultValue": "maintenanceDay"
+                                },
+                                "tagValue": {
+                                    "type": "string"
+                                },
+                                "managedIdentityId": {
+                                    "type": "string"
+                                }
+                            },
+                            "variables": {
+                                "userAssignedIdentities": {
+                                    "[parameters('managedIdentityId')]": {}
+                                }
+                            },
+                            "resources": [{
+                                "type": "Microsoft.Resources/deploymentScripts",
+                                "apiVersion": "2020-10-01",
+                                "name": "[concat('Set-Tag-',guid(parameters('vmId')))]",
+                                "location": "[resourceGroup().location]",
+                                "kind": "AzurePowerShell",
+                                "identity": {
+                                    "type": "userAssigned",
+                                    "userAssignedIdentities": "[variables('userAssignedIdentities')]"
+                                },
+                                "properties": {
+                                    "forceUpdateTag": "1",
+                                    "azPowerShellVersion": "6.6",
+                                    "primaryScriptUri": "https://raw.githubusercontent.com/autosysops/TagLoadbalancedVMs/main/Scripts/Set-VmTag.ps1",
+                                    "arguments": "[concat(' -VmId \"', parameters('vmId'),'\" -Tags ''[{\\\"', parameters('tagName'),'\\\": \\\"',parameters('tagValue'),'\\\"}]''')]",
+                                    "timeout": "PT1H",
+                                    "cleanupPreference": "Always",
+                                    "retentionInterval": "PT1H"
+                                }
+                            }],
+                            "outputs": {}
+                        },
+                        "parameters": {
+                            "vmId": {
+                                "value": "[field('id')]"
+                            },
+                            "tagName": {
+                                "value": "[parameters('tagName')]"
+                            },
+                            "tagValue": {
+                                "value": "[parameters('tagValue')]"
+                            },
+                            "managedIdentityId": {
+                                "value": "[parameters('managedIdentityId')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "parameters": {
+        "managedIdentityId": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Managed Identity Id",
+                "description": "Id of the managed Identity which is used for the remediation (needs to have the Tag Contribute and Reader Role)."
+            }
+        },
+        "tagName": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Name",
+                "description": "Name of the tag that is used for tagging the vm's."
+            }
+        },
+        "tagValue": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Value",
+                "description": "Value of the tag that is set when a loadbalanced vm is found."
+            }
+        }
+    }
+}

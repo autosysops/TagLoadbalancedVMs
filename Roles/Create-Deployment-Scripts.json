@@ -1,0 +1,19 @@
+{
+    "properties": {
+        "roleName": "Create Deployment Scripts",
+        "description": "Configure least privilege to create deployment scripts",
+        "assignableScopes": [],
+        "permissions": [{
+            "actions": [
+                "Microsoft.Storage/storageAccounts/*",
+                "Microsoft.ContainerInstance/containerGroups/*",
+                "Microsoft.Resources/deployments/*",
+                "Microsoft.Resources/deploymentScripts/*",
+                "Microsoft.ManagedIdentity/userAssignedIdentities/assign/*"
+            ],
+            "notActions": [],
+            "dataActions": [],
+            "notDataActions": []
+        }]
+    }
+}
