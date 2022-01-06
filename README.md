@@ -1,0 +1,4 @@
+This repository contains an Azure Policy which can be used to automatically tag virtual machines behind a load balancer or application gateway. To make it work you need to create a custom role defined in the Roles folder and create a managed identity with the Tag Contributor and Reader Role. When creating the policy replace the placeholder in the policy definition with the created role id. When assigning the policy to a scope enter the id of the managed idenitity you created.
+[For more information check out this blog post.](https://autosysops.com/blog/automatically-tag-azure-vms-behind-a-load-balancer)
+
+You are allowed to use the content in this repository for whatever use. But there is no official support on it whatsover either. When using this outside a test environment please make sure you change the uri in the deployment script to not refer to this repository anymore and there wont be any guarentees the script wont change or always exists.
